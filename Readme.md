@@ -54,6 +54,7 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 - Python 3.9+ recomendado.
 - Dependencias: `pygame` (cliente y servidor), `opencv-python` opcional para el video promocional.
 - Red: los clientes deben alcanzar la IP/puerto del servidor (por defecto 12345 TCP).
+- El juego tiene un resolución de 1200 X 800 px.
 
 ### Ejecución
 
