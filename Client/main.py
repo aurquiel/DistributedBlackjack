@@ -232,11 +232,7 @@ while runing:
                         elif idx == 3:
                             current_view = "config"
                         elif idx == 4:
-                            try:
-                                readme_path = (Path(__file__).parent.parent / "Readme.md").resolve().as_uri()
-                                webbrowser.open(readme_path)
-                            except Exception:
-                                pass
+                            webbrowser.open("https://github.com/aurquiel/DistributedBlackjack")
 
             elif current_view == "config":
                 if config_back_rect.collidepoint(event.pos):

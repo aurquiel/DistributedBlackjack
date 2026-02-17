@@ -57,20 +57,27 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 
 ### Ejecución
 
-1. Instala dependencias:
+1. (Opcional, recomendado) Crea y activa un entorno virtual:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+```
+
+2. Instala dependencias:
 
 ```bash
 pip install pygame opencv-python
 ```
 
-2. Servidor:
+3. Servidor:
 
 ```bash
 cd Server
 python main.py
 ```
 
-3. Cliente (uno por jugador):
+4. Cliente (uno por jugador):
 
 ```bash
 cd Client
