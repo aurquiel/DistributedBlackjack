@@ -39,7 +39,7 @@ menu_img = pygame.transform.smoothscale(menu_img, (400, 400))
 # UI state
 runing = True
 active_input = None
-HOST_IP = "192.168.0.127"
+HOST_IP = "127.0.1.1"
 HOST_PORT = "12345"
 MAX_PLAYERS = 3
 
@@ -96,9 +96,10 @@ def draw_outcome_banner(text, color):
     screen.blit(label, label_pos)
 
 saldo_input_rect = pygame.Rect(800, WINDOWS_HEIGHT - 150, 150, 44)
-apuesta_input_rect = pygame.Rect(980, WINDOWS_HEIGHT - 150, 150, 44)
+apuesta_input_rect = pygame.Rect(980, WINDOWS_HEIGHT - 150, 170, 44)
 btn_recargar_rect = pygame.Rect(800, WINDOWS_HEIGHT - 92, 150, 44)
-btn_apostar_rect = pygame.Rect(980, WINDOWS_HEIGHT - 92, 150, 44)
+btn_apostar_rect = pygame.Rect(980, WINDOWS_HEIGHT - 92, 170, 44)
+btn_doblar_rect = pygame.Rect(980, WINDOWS_HEIGHT - 92, 190, 44)
 btn_plantarse_rect = pygame.Rect(80, WINDOWS_HEIGHT - 92, 150, 44)
 btn_hit_rect = pygame.Rect(250, WINDOWS_HEIGHT - 92, 150, 44)
 saldo_input_text = ""
@@ -281,19 +282,23 @@ while runing:
                     main_player = my_game.get_player_by_name(my_connection.unique_name)
                     has_cards = bool(main_player and main_player.hand)
                     has_two_cards = bool(main_player and len(main_player.hand) == 2)
+                    has_not_cards = bool(main_player and len(main_player.hand) == 0)
                     dealer_has_one_card = len(my_game.cards_on_table) == 1
 
                     if btn_recargar_rect.collidepoint(event.pos) and saldo_input_text.strip():
                         my_game.send_command(f"\\m {my_game.get_player_name()} {saldo_input_text}")
+                        saldo_input_text = ""
                     if dealer_has_one_card and has_two_cards:
-                        if has_cards and btn_apostar_rect.collidepoint(event.pos):
+                        if has_cards and btn_doblar_rect.collidepoint(event.pos):
                             my_game.send_command(f"\\c {my_game.get_player_name()}")
                             my_game.send_command(f"\\z {my_game.get_player_name()}")
                     else:
                         if btn_apostar_rect.collidepoint(event.pos) and apuesta_input_text.strip() and main_player:
                             if float(apuesta_input_text) <= main_player.get_balance():
                                 my_game.send_command(f"\\a {my_game.get_player_name()} {apuesta_input_text}")
-                                my_game.send_command(f"\\z {my_game.get_player_name()}")
+                                if float(apuesta_input_text) > 0:
+                                    my_game.send_command(f"\\z {my_game.get_player_name()}")
+                                    apuesta_input_text = ""
                             else:
                                 my_game.info_message = "No tienes suficiente saldo para esta apuesta."
                     if has_cards and btn_plantarse_rect.collidepoint(event.pos):
@@ -552,18 +557,18 @@ while runing:
                 main_player = my_game.get_player_by_name(my_connection.unique_name)
                 has_cards = bool(main_player and main_player.hand)
                 has_two_cards = bool(main_player and len(main_player.hand) == 2)
+                has_not_cards = bool(main_player and len(main_player.hand) == 0)
                 dealer_has_one_card = len(my_game.cards_on_table) == 1
 
                 draw_input(saldo_input_rect, f"Saldo: {saldo_input_text}", active_input_game == "saldo")
-                if not (dealer_has_one_card and has_two_cards):
+                if has_not_cards:
                     draw_input(apuesta_input_rect, f"Apuesta: {apuesta_input_text}", active_input_game == "apuesta")
-
+                    draw_button(btn_apostar_rect, "Apostar", btn_apostar_rect.collidepoint(mouse_pos))
+                
                 draw_button(btn_recargar_rect, "Recargar", btn_recargar_rect.collidepoint(mouse_pos))
                 if dealer_has_one_card and has_two_cards:
-                    draw_button(btn_apostar_rect, "Doblar Apuesta", btn_apostar_rect.collidepoint(mouse_pos))
-                else:
-                    draw_button(btn_apostar_rect, "Apostar", btn_apostar_rect.collidepoint(mouse_pos))
-
+                    draw_button(btn_doblar_rect, "Doblar Apuesta", btn_doblar_rect.collidepoint(mouse_pos))
+            
                 if has_cards:
                     draw_button(btn_plantarse_rect, "Plantarse", btn_plantarse_rect.collidepoint(mouse_pos))
                     draw_button(btn_hit_rect, "Pedir Carta", btn_hit_rect.collidepoint(mouse_pos))

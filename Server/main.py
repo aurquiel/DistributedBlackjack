@@ -1,3 +1,4 @@
+
 import pygame
 from pathlib import Path
 from domain.Connection import Connection
@@ -8,7 +9,7 @@ from domain.Player import Player
 pygame.init()
 
 #=========CONTANTS GAME=========
-WINDOWS_WIDTH = 900
+WINDOWS_WIDTH = 1000
 WINDOWS_HEIGHT = 600
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -16,6 +17,7 @@ FPS = 15
 clock = pygame.time.Clock()
 font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 22)
 title_font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 18)
+small_font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 12)
 MAX_PLAYERS = 3
 HOST_PORT = 12345
 
@@ -56,8 +58,12 @@ while runing: #Aqui va pygame
     panel_bg = (25, 25, 25)
     panel_border = (80, 80, 80)
 
-    host_rect = pygame.Rect(20, 20, 420, 70)
-    port_rect = pygame.Rect(460, 20, 420, 70)
+    horizontal_margin = 20
+    panel_gap = 20
+    top_panel_width = (WINDOWS_WIDTH - (horizontal_margin * 2) - panel_gap) // 2
+
+    host_rect = pygame.Rect(horizontal_margin, 20, top_panel_width, 70)
+    port_rect = pygame.Rect(horizontal_margin + top_panel_width + panel_gap, 20, top_panel_width, 70)
     
     pygame.draw.rect(display_surface, panel_bg, host_rect)
     pygame.draw.rect(display_surface, panel_bg, port_rect)
@@ -78,7 +84,7 @@ while runing: #Aqui va pygame
     display_surface.blit(port_value, (port_rect.x + 10, port_rect.y + 32))
 
     # ---- Panel de eventos ----
-    events_rect = pygame.Rect(20, 110, 860, 470)
+    events_rect = pygame.Rect(horizontal_margin, 110, WINDOWS_WIDTH - (horizontal_margin * 2), 470)
     pygame.draw.rect(display_surface, panel_bg, events_rect)
     pygame.draw.rect(display_surface, panel_border, events_rect, 2)
 
@@ -89,7 +95,7 @@ while runing: #Aqui va pygame
     max_events = 16
     start_y = events_rect.y + 35
     for i, msg in enumerate(server_events[-max_events:]):
-        line = font.render(f"- {msg}", True, WHITE)
+        line = small_font.render(f"- {msg}", True, WHITE)
         display_surface.blit(line, (events_rect.x + 10, start_y + i * 26))
 
     #Update the display

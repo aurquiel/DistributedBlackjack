@@ -55,6 +55,8 @@ class Game:
             command = self.connection.commands_consume()
 
             if command is None: #no hay comandos para procesar
+                #delays para evitar que el hilo consuma CPU innecesariamente cuando no hay comandos
+                time.sleep(0.1)
                 continue
             elif command.startswith("\\n"): #jugador pide unirse al juego
                 player_names = command.split(" ")[1:] # se obtiene los nombre de todos los jugadores

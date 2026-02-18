@@ -39,6 +39,8 @@ class Game:
             command = self.connection.commands_consume()
 
             if command is None: #no hay comandos para procesar
+                #delays para evitar que el hilo consuma CPU innecesariamente cuando no hay comandos
+                time.sleep(0.1)
                 continue
             if command.startswith("\\i"):
                 message = " ".join(command.split(" ")[1:])
@@ -80,20 +82,27 @@ class Game:
             elif command.startswith("\\m"): #jugador envia monto de saldo para agregar a su balance
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid
                 message = command.split(" ")[2] # se obtiene el monto de la apuesta del comando
+                number_message = int(message)
+                if number_message <= 0:
+                    continue
                 player = self.get_player_by_name(player_name)
                 if player:
-                    player.add_balance(int(message)) # se agrega el monto de la apuesta al balance del jugador
+                    player.add_balance(number_message) # se agrega el monto de la apuesta al balance del jugador
                     self.connection.broadcast_message(f"\\m {player_name} {player.get_balance()}") # se actualiza el tablero indicando el balance del jugador
                     self.server_events.append(f"{player_name} agregó saldo {message}.")
 
             elif command.startswith("\\a"): #jugador realiza una apuesta
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid
                 message = command.split(" ")[2] # se obtiene el monto de la apuesta del comando
+                number_message = int(message)
+                if number_message <= 0:
+                    continue
                 player = self.get_player_by_name(player_name)
                 if player:
-                    if player.set_bet_balance(int(message)): # se realiza el retiro del monto de la apuesta al balance del jugador, si el jugador no tiene suficiente balance para realizar la apuesta se envia un mensaje al jugador indicando que no tiene suficiente balance para realizar la apuesta
-                        self.connection.broadcast_message(f"\\a {player_name} {player.get_bet_balance()} {player.get_balance()}") # se actualiza el tablero indicando la apuesta del jugador
-                        self.server_events.append(f"{player_name} realizó una apuesta de {message}.")
+                    if len(player.hand) <= 0: # solo se permite apostar si el jugador no tiene cartas en la mano, es decir, si no ha iniciado su turno
+                        if player.set_bet_balance(number_message): # se realiza el retiro del monto de la apuesta al balance del jugador, si el jugador no tiene suficiente balance para realizar la apuesta se envia un mensaje al jugador indicando que no tiene suficiente balance para realizar la apuesta
+                            self.connection.broadcast_message(f"\\a {player_name} {player.get_bet_balance()} {player.get_balance()}") # se actualiza el tablero indicando la apuesta del jugador
+                            self.server_events.append(f"{player_name} realizó una apuesta de {message}.")
 
             elif command.startswith("\\h"): #jugador pide hit
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid

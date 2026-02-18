@@ -11,6 +11,7 @@ class Connection:
         self.commands = []
         self.commands_lock = threading.Lock()
         self.unique_name = str(uuid.uuid4()) #nombre unico del cliente
+        self.CONNECT_TIMEOUT = 5.0
 
     def commands_add(self, command):
         with self.commands_lock:
@@ -52,21 +53,30 @@ class Connection:
                     self.commands_add(f"\\u {self.unique_name}.")
                 break
 
-    def start_connect_client(self):
+    def _do_connect(self):
         try:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.client_socket.settimeout(self.CONNECT_TIMEOUT)  # evita espera larga en Linux
             self.client_socket.connect((self.HOST_IP, int(self.HOST_PORT)))
+            self.client_socket.settimeout(None)  # modo bloqueante normal para recv
 
-            self.commands_add(f"\\y {self.unique_name}") # se agrega un mensaje a la lista de comandos para ser proceso en el cliente
-            self.send_message(f"\\n {self.unique_name}") # se envia un mensaje al servidor con el nombre unico del cliente para que el servidor lo registre como un nuevo jugador
+            self.commands_add(f"\\y {self.unique_name}")
+            self.send_message(f"\\n {self.unique_name}")
+
             recieve_thread = threading.Thread(target=self.recieve_message, daemon=True)
             recieve_thread.start()
         except Exception as ex:
             print(f"Socket error: {ex}")
             if self.client_socket:
                 self.client_socket.close()
-                self.commands_add(f"\\u {self.unique_name}.")
+                self.client_socket = None
+            self.commands_add(f"\\u {self.unique_name}.")
             return
 
+    def start_connect_client(self, async_connect=True):
+        if async_connect:
+            threading.Thread(target=self._do_connect, daemon=True).start()
+        else:
+            self._do_connect()
 
-    
+
