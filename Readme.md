@@ -17,12 +17,12 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 - **Servidor autoritativo (fuente de verdad):** toda regla crítica vive en el servidor (saldo, apuestas, reparto, turnos, resultados). El cliente nunca decide quién gana; solo renderiza estado y envía acciones.
 - **Modelo de hilos en servidor:**
 	- 1 hilo acepta conexiones TCP nuevas.
-	- 1 hilo por cada cliente recibe mensajes de ese socket (cada mensjae es un comando del juego) y lo coloca en una cola para ser consumido.
+	- 1 hilo por cada cliente recibe mensajes de ese socket (cada mensaje es un comando del juego) y lo coloca en una cola para ser consumido luego por otro hilo.
 	- 1 hilo de juego consume todos los comandos (una lista usando lock para acceso exclusivo) y aplica la lógica de forma secuencial.
 - **Modelo de hilos en cliente:**
 	- 1 hilo de UI (pygame) para dibujar y capturar input.
 	- 1 hilo de conexión creado al intentar conectar, para ejecutar `connect()` sin congelar la UI.
-	- 1 hilo receptor de mensajes del servidor (recibe los comandos del servidor y los agrega a una lista usando lock para consumirlos en otro hilo, asi permanece escuchando sin ahcer atreas pesadas que puedan bloquear el hilo).
+	- 1 hilo receptor de mensajes del servidor (recibe los comandos del servidor y los agrega a una lista usando lock para consumirlos en otro hilo, asi permanece escuchando sin hacer tareas pesadas que puedan bloquear el hilo).
 	- 1 hilo que procesa la cola de comandos y actualiza el estado local.
 - **Colas thread-safe + locks:** cliente y servidor usan una cola protegida por `Lock` para desacoplar recepción de red y lógica del juego. En servidor, además se protege la lista de sockets/nombres conectados para evitar condiciones de carrera.
 - **Protocolo TCP simple y robusto:** cada mensaje viaja como `header(10 bytes con longitud) + payload de texto`. Esto evita lecturas parciales y facilita parseo de comandos (`\n`, `\a`, `\h`, etc.).
@@ -42,7 +42,6 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 - `\m <jugador> <monto>`: Recarga de saldo.
 - `\a <jugador> <monto> <balance>`: Apuesta aplicada; incluye balance actualizado.
 - `\c <jugador> <nueva_apuesta> <balance>`: Doble apuesta aplicada.
-- `\t`: Saldo insuficiente para apostar/doblar; el cliente muestra aviso.
 - `\k <jugador> <c1> <c2>`: Reparto inicial de dos cartas al jugador.
 - `\h <jugador> <carta...>`: Mano completa del jugador tras pedir carta.
 - `\s <carta...>`: Cartas visibles del crupier.
@@ -66,9 +65,10 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 ### Requisitos técnicos
 
 - Python 3.9+ recomendado.
-- Dependencias: `pygame` (cliente y servidor), `opencv-python` opcional para el video promocional.
+- Dependencias: `pygame` (cliente y servidor), `opencv-python` opcional para el video promocional en el cliente.
 - Red: los clientes deben alcanzar la IP/puerto del servidor (por defecto 12345 TCP).
 - El juego tiene un resolución de 1200 X 800 px.
+- El servidor muestra una pantalla con eventos, resolución 1000 X 600 px.
 
 ### Ejecución
 
