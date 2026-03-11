@@ -56,10 +56,10 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 ### Flujo de comunicación (alto nivel)
 
 1. Conexión: cliente envía `\n`; servidor acepta o responde `\f` si lleno.
-2. Inicio de partida: cuando hay 3 jugadores, servidor emite `\y` inicio departe y `\x` al primer jugador para darle turno.
+2. Inicio de partida: cuando hay 3 jugadores, servidor emite `\y` inicio de partida y `\x` al primer jugador para darle turno.
 3. Apuestas: clientes envían `\a`/`\c`; el servidor valida saldo y difunde el estado.
 4. Al finalizar las apuestas el crupier reparte las cartas `\s` para la carta del crupier y `\k` para las cartas de los jugadores.
-5. Acciones de turno: `\h` para pedir carta, `\c` para doblar cartas, `\z` para cerrar turno. El servidor rota con `\x`.
+5. Acciones de turno: `\h` para pedir carta, `\c` para doblar apuesta, `\z` para terminar turno. El servidor rota con `\x`.
 6. Cierre de ronda: tras todos los turnos, el crupier juega (`\s`, `\v`), se envían resultados (`\w`, `\g`, `\l`) y limpieza (`\b`).
 7. Desconexiones: `\u` libera el cupo; si no hay ronda, el servidor asigna turno al siguiente disponible.
 
