@@ -2,8 +2,8 @@ import socket
 import threading
 
 class Connection:
-    def __init__(self, MAX_PLAYERS, HOST_PORT=12345):
-        self.HOST_IP = socket.gethostbyname(socket.gethostname())
+    def __init__(self, HOST_IP, HOST_PORT, MAX_PLAYERS):
+        self.HOST_IP = HOST_IP
         self.PORT = HOST_PORT
         self.ENCODER = "utf-8"
         self.server_socket = None
@@ -91,6 +91,18 @@ class Connection:
             if self.server_socket:
                 self.server_socket.close()
             return False
+    
+    def stop_server(self):
+        if self.server_socket:
+            self.server_socket.close()
+        with self.players_lock:
+            for player_socket in self.player_sockets:
+                try:
+                    player_socket.close()
+                except Exception:
+                    pass
+            self.player_sockets.clear()
+            self.player_names.clear()
 
     def connect_client(self):
        while True:

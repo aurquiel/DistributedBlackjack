@@ -101,11 +101,20 @@ class Game:
 
             elif command.startswith("\\x"): #indica que es el turno de un jugador
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid
+                # Sincronizar turno: limpiar estado previo antes de asignar el nuevo turno.
+                for p in self.players:
+                    p.set_has_turn(False)
+                self.is_my_turn = False
+
                 for player in self.players:
                     if player.name == player_name:
                         player.set_has_turn(True)
                         if player.name == self.connection.unique_name and not self.lose_game: # se verifica que el jugador que tiene el turno activo es el cliente actual y que el cliente no ha perdido la ronda para activar su turno en el cliente
                             self.is_my_turn = True
+                            if player.calculate_hand_value() == 21:
+                                # Si recibe turno con 21, cerrar turno automáticamente.
+                                self.connection.send_message(f"\\z {self.connection.unique_name}")
+                                self.is_my_turn = False
                         elif player.name == self.connection.unique_name and self.lose_game: # si el cliente actual tiene el turno activo pero ha perdido la ronda se le indica que su turno ha finalizado para evitar que pueda realizar acciones en su turno
                             self.connection.send_message(f"\\z {self.connection.unique_name}") # pierde turno 
                             self.is_my_turn = False
@@ -130,7 +139,8 @@ class Game:
                 amount = float(array_command[2])
                 for player in self.players:
                     if player.name == player_name:
-                        player.add_balance(amount)
+                        # El servidor ya envía el saldo total actualizado.
+                        player.set_balance(amount)
                         break
                 self.need_to_draw = True
 
@@ -185,7 +195,6 @@ class Game:
                     self.lose_game = True
                     self.win_game = False
                     self.tide_game = False
-                    self.connection.send_message(f"\\z {self.connection.unique_name}") # pierde turno 
                     self.is_my_turn = False
                 self.need_to_draw = True
 

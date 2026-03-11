@@ -38,7 +38,7 @@ class Player:
         return self.bet_balance
     
     def set_bet_balance(self, amount):
-        self.bet_balance += amount
+        self.bet_balance = amount
     
     def clear_bet(self):
         self.bet_balance = 0

@@ -19,6 +19,7 @@ font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 
 title_font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 18)
 small_font = pygame.font.SysFont(["Arial", "Liberation Sans", "DejaVu Sans", "Sans"], 12)
 MAX_PLAYERS = 3
+HOST_IP = "192.168.137.167"
 HOST_PORT = 12345
 
 #create a game window 
@@ -31,7 +32,7 @@ pygame.display.set_icon(icon)
 
 server_events = []
 
-my_connection = Connection(MAX_PLAYERS, HOST_PORT)
+my_connection = Connection(HOST_IP, HOST_PORT, MAX_PLAYERS)
 my_deck = Deck()
 my_game = Game(my_deck, my_connection, MAX_PLAYERS, server_events)
 
@@ -41,6 +42,7 @@ while runing: #Aqui va pygame
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             runing = False
+            my_connection.stop_server()
             my_game.end_game()
             break
 

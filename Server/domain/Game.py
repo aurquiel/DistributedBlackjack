@@ -67,6 +67,7 @@ class Game:
                         self.gameready = True
                         self.connection.broadcast_message(f"\\y") # indica a los jugadores que el juego ha comenzado
                         self.server_events.append("El juego está listo para iniciar.")
+                        self.players[0].set_has_turn(True)
                         self.connection.broadcast_message(f"\\x " + self.players[0].name) # Dale el turno al que se unio primero
                     else:
                         # juego ya iniciado: jugador entra esperando siguiente ronda
@@ -99,14 +100,43 @@ class Game:
                     continue
                 player = self.get_player_by_name(player_name)
                 if player:
+                    # Durante fase de apuestas, solo puede apostar quien tenga el turno.
+                    if not self.round_in_progress and not player.get_has_turn():
+                        continue
                     if len(player.hand) <= 0: # solo se permite apostar si el jugador no tiene cartas en la mano, es decir, si no ha iniciado su turno
                         if player.set_bet_balance(number_message): # se realiza el retiro del monto de la apuesta al balance del jugador, si el jugador no tiene suficiente balance para realizar la apuesta se envia un mensaje al jugador indicando que no tiene suficiente balance para realizar la apuesta
                             self.connection.broadcast_message(f"\\a {player_name} {player.get_bet_balance()} {player.get_balance()}") # se actualiza el tablero indicando la apuesta del jugador
                             self.server_events.append(f"{player_name} realizó una apuesta de {message}.")
 
+                            # Cerrar turno automáticamente al apostar para evitar bloqueos
+                            # si el cliente no llega a enviar \z por latencia o desincronización.
+                            if not self.round_in_progress:
+                                player.set_has_turn(False)
+                                self.connection.broadcast_message(f"\\z {player_name}")
+                                self.server_events.append(f"{player_name} termina su turno.")
+
+                                if self.start_round_if_ready():
+                                    continue
+                                self._advance_turn(player_name)
+
             elif command.startswith("\\h"): #jugador pide hit
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid
                 player = self.get_player_by_name(player_name)
+
+                # Solo se permite pedir carta durante la ronda y al jugador con turno.
+                if not player or not self.round_in_progress or not player.get_has_turn():
+                    continue
+
+                # Si ya tiene 21, no debe poder pedir más cartas: cerrar turno.
+                player.has_more_than_21()  # actualiza player.player_value
+                if player.player_value == 21:
+                    player.set_has_turn(False)
+                    player.set_finished_turn(True)
+                    self.connection.broadcast_message(f"\\z {player_name}")
+                    self.server_events.append(f"{player_name} ya tenía 21 y termina su turno automáticamente.")
+                    self._advance_turn(player_name)
+                    continue
+
                 card = self.deck.draw_card()
                 if card:
                     player.receive_card(card)
@@ -122,19 +152,27 @@ class Game:
                 if player.has_more_than_21():
                     self.connection.broadcast_message(f"\\l {player_name} {player.get_balance()}") # se actualiza el tablero indicando que el jugador ha perdido
                     self.server_events.append(f"{player_name} tiene más de 21 y pierde.")
-                    for player in self.players:
-                        if player.name == player_name:
-                            player.set_lose_game(True) # se actualiza el estado de derrota del jugador para que el cliente pueda manejarlo y evitar que pueda realizar acciones en su turno
-                            player.set_has_turn(False)
-                            player.set_finished_turn(True)
-                            break
+                    player.set_lose_game(True) # se actualiza el estado de derrota del jugador para que el cliente pueda manejarlo y evitar que pueda realizar acciones en su turno
+                    player.set_has_turn(False)
+                    player.set_finished_turn(True)
+                    self.connection.broadcast_message(f"\\z {player_name}")
                     # pasar turno inmediato al siguiente jugador o al crupier si no hay más
+                    self._advance_turn(player_name)
+                elif player.player_value == 21:
+                    # Si llega a 21 exacto, se planta automáticamente.
+                    player.set_has_turn(False)
+                    player.set_finished_turn(True)
+                    self.connection.broadcast_message(f"\\z {player_name}")
+                    self.server_events.append(f"{player_name} llega a 21 y termina su turno automáticamente.")
                     self._advance_turn(player_name)
 
             elif command.startswith("\\c"): #jugador dobal su apuesta si tiene el saldo suficiente para hacerlo
                 player_name = command.split(" ")[1] # se obtiene el nombre del jugador del comando es unico un uuid
                 player = self.get_player_by_name(player_name)
                 if player:
+                    # Doblar solo aplica en ronda activa y para el jugador con turno.
+                    if not self.round_in_progress or not player.get_has_turn():
+                        continue
                     if player.set_bet_balance(player.get_bet_balance()): # se realiza el retiro del monto de la apuesta al balance del jugador, si el jugador no tiene suficiente balance para realizar la apuesta se envia un mensaje al jugador indicando que no tiene suficiente balance para realizar la apuesta
                         self.connection.broadcast_message(f"\\c {player_name} {player.get_bet_balance()} {player.get_balance()}") # se actualiza el tablero indicando la nueva apuesta del jugador
                         self.server_events.append(f"{player_name} dobla su apuesta a {player.get_bet_balance()}.")
@@ -146,13 +184,15 @@ class Game:
                 player_name = parts[1].strip() if len(parts) > 1 else ""
                 player = self.get_player_by_name(player_name)
 
-                self.connection.broadcast_message(f"\\z {player_name}") # se actualiza el tablero indicando que el jugador ha finalizado su turno
+                if not player or not player.get_has_turn():
+                    continue  # ignorar fin de turno inválido
+
+                self.connection.broadcast_message(f"\\z {player_name}")
                 self.server_events.append(f"{player_name} termina su turno.")
 
-                if player and self.round_in_progress:
+                if self.round_in_progress:
                     player.set_finished_turn(True)
 
-                # si no hay ronda en curso y todos apostaron, se inicia; si no, se pasa el turno
                 if self.start_round_if_ready():
                     continue
                 self._advance_turn(player_name)
@@ -206,7 +246,10 @@ class Game:
             self.server_events.append("Todos los jugadores han realizado su apuesta. La ronda comienza.")
 
             for p in self.players:
+                # Reset defensivo por ronda para evitar estados arrastrados.
+                p.set_lose_game(False)
                 p.set_finished_turn(False)
+                p.set_has_turn(False)
 
             card_init = self.server_hit_initial_card()
             self.connection.broadcast_message(f"\\s {card_init}")
@@ -230,11 +273,10 @@ class Game:
     def _advance_turn(self, current_player_name):
         if not self.players:
             return
-        # apagar turno actual
+
+        # limpiar cualquier turno previo para evitar doble turno
         for p in self.players:
-            if p.name == current_player_name:
-                p.set_has_turn(False)
-                break
+            p.set_has_turn(False)
 
         # buscar siguiente jugador activo
         active_indices = [i for i, p in enumerate(self.players) if not p.lose_game and not p.get_finished_turn()]
@@ -243,7 +285,6 @@ class Game:
                 self.finish_round()
             return
 
-        # buscar el siguiente activo respecto al jugador actual; si no se encuentra, tomar el primero activo
         idx = next((i for i, p in enumerate(self.players) if p.name == current_player_name), -1)
         ordered = active_indices
         if idx >= 0 and idx in active_indices:
@@ -254,7 +295,6 @@ class Game:
         candidate.set_has_turn(True)
         self.connection.broadcast_message(f"\\x {candidate.name}")
         self.server_events.append(f"{candidate.name} inicia su turno.")
-        return
 
     def finish_round(self):
         self.server_hits()

@@ -39,7 +39,7 @@ menu_img = pygame.transform.smoothscale(menu_img, (400, 400))
 # UI state
 runing = True
 active_input = None
-HOST_IP = "127.0.1.1"
+HOST_IP = "192.168.137.167"
 HOST_PORT = "12345"
 MAX_PLAYERS = 3
 
@@ -184,8 +184,7 @@ def draw_hand(cards, center_pos, label, real_name, balance, bet, has_turn=False,
                 pygame.draw.rect(screen, BLACK, placeholder, border_radius=8)
                 pygame.draw.rect(screen, WHITE, placeholder, 2, border_radius=8)
     
-    if is_me and has_turn and hand_value == 21:
-        my_game.send_command(f"\\z {my_game.get_player_name()}")
+    # No enviar comandos desde el render: evita colas de \z repetidos.
 
 
 def open_video():
@@ -291,13 +290,11 @@ while runing:
                     if dealer_has_one_card and has_two_cards:
                         if has_cards and btn_doblar_rect.collidepoint(event.pos):
                             my_game.send_command(f"\\c {my_game.get_player_name()}")
-                            my_game.send_command(f"\\z {my_game.get_player_name()}")
                     else:
                         if btn_apostar_rect.collidepoint(event.pos) and apuesta_input_text.strip() and main_player:
                             if float(apuesta_input_text) <= main_player.get_balance():
                                 my_game.send_command(f"\\a {my_game.get_player_name()} {apuesta_input_text}")
                                 if float(apuesta_input_text) > 0:
-                                    my_game.send_command(f"\\z {my_game.get_player_name()}")
                                     apuesta_input_text = ""
                             else:
                                 my_game.info_message = "No tienes suficiente saldo para esta apuesta."
@@ -558,6 +555,7 @@ while runing:
                 has_cards = bool(main_player and main_player.hand)
                 has_two_cards = bool(main_player and len(main_player.hand) == 2)
                 has_not_cards = bool(main_player and len(main_player.hand) == 0)
+                has_21 = bool(main_player and main_player.calculate_hand_value() == 21)
                 dealer_has_one_card = len(my_game.cards_on_table) == 1
 
                 draw_input(saldo_input_rect, f"Saldo: {saldo_input_text}", active_input_game == "saldo")
@@ -569,7 +567,7 @@ while runing:
                 if dealer_has_one_card and has_two_cards:
                     draw_button(btn_doblar_rect, "Doblar Apuesta", btn_doblar_rect.collidepoint(mouse_pos))
             
-                if has_cards:
+                if has_cards and not has_21:
                     draw_button(btn_plantarse_rect, "Plantarse", btn_plantarse_rect.collidepoint(mouse_pos))
                     draw_button(btn_hit_rect, "Pedir Carta", btn_hit_rect.collidepoint(mouse_pos))
 
