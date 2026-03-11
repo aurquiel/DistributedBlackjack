@@ -176,6 +176,13 @@ class Game:
                     if player.set_bet_balance(player.get_bet_balance()): # se realiza el retiro del monto de la apuesta al balance del jugador, si el jugador no tiene suficiente balance para realizar la apuesta se envia un mensaje al jugador indicando que no tiene suficiente balance para realizar la apuesta
                         self.connection.broadcast_message(f"\\c {player_name} {player.get_bet_balance()} {player.get_balance()}") # se actualiza el tablero indicando la nueva apuesta del jugador
                         self.server_events.append(f"{player_name} dobla su apuesta a {player.get_bet_balance()}.")
+
+                        # Al doblar, el turno termina inmediatamente.
+                        player.set_has_turn(False)
+                        player.set_finished_turn(True)
+                        self.connection.broadcast_message(f"\\z {player_name}")
+                        self.server_events.append(f"{player_name} termina su turno tras doblar apuesta.")
+                        self._advance_turn(player_name)
                     else:
                         self.connection.send_message_to_player(self.connection.get_player_socket_by_name(player_name), f"\\t") # se envia un mensaje al jugador indicando que no tiene suficiente balance para doblar su apuesta
 
@@ -220,10 +227,16 @@ class Game:
                     else:
                         self._advance_turn(player_name)
                 else:
-                    # Fuera de ronda: asegurar que alguien tenga el turno para apostar
+                    # Fuera de ronda: si todos apostaron, arrancar ronda; si no,
+                    # dar turno solo a quien aún no haya apostado.
+                    if self.start_round_if_ready():
+                        continue
+
                     if self.players and not any(p.get_has_turn() for p in self.players):
-                        self.players[0].set_has_turn(True)
-                        self.connection.broadcast_message(f"\\x {self.players[0].name}")
+                        waiting_for_bet = next((p for p in self.players if p.get_bet_balance() <= 0), None)
+                        if waiting_for_bet:
+                            waiting_for_bet.set_has_turn(True)
+                            self.connection.broadcast_message(f"\\x {waiting_for_bet.name}")
 
     def end_game(self):
         self.game_started = False

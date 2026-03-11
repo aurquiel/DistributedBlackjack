@@ -10,24 +10,24 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 -   4. Si empatas recuperas la apuesta; si ganas la duplicas.
 -   5. Flujo de apuesta: recargar saldo → apostar → pedir carta o plantarse.
 -   6. Solo puedes doblar la apuesta con exactamente dos cartas.
--   7. La partida inicia con 3 jugadores; si hay cupos, se pueden unir nuevos en medio de la partida (activos desde la siguiente ronda).
+-   7. La partida inicia con 3 jugadores; si hay cupos, se pueden unir nuevos en medio de la partida.
 
 ### Arquitectura y decisiones de diseño
 
 - **Servidor autoritativo (fuente de verdad):** toda regla crítica vive en el servidor (saldo, apuestas, reparto, turnos, resultados). El cliente nunca decide quién gana; solo renderiza estado y envía acciones.
 - **Modelo de hilos en servidor:**
-	- 1 hilo acepta conexiones TCP nuevas.
-	- 1 hilo por cada cliente recibe mensajes de ese socket (cada mensaje es un comando del juego) y lo coloca en una cola para ser consumido luego por otro hilo.
-	- 1 hilo de juego consume todos los comandos (una lista usando lock para acceso exclusivo) y aplica la lógica de forma secuencial.
+    - 1 hilo acepta conexiones TCP nuevas.
+    - 1 hilo por cada cliente recibe mensajes de ese socket (cada mensaje es un comando del juego) y lo coloca en una cola para ser consumido luego por otro hilo.
+    - 1 hilo de juego consume todos los comandos (una lista usando lock para acceso exclusivo) y aplica la lógica de forma secuencial.
 - **Modelo de hilos en cliente:**
-	- 1 hilo de UI (pygame) para dibujar y capturar input.
-	- 1 hilo de conexión creado al intentar conectar, para ejecutar `connect()` sin congelar la UI.
-	- 1 hilo receptor de mensajes del servidor (recibe los comandos del servidor y los agrega a una lista usando lock para consumirlos en otro hilo, asi permanece escuchando sin hacer tareas pesadas que puedan bloquear el hilo).
-	- 1 hilo que procesa la cola de comandos y actualiza el estado local.
+    - 1 hilo de UI (pygame) para dibujar y capturar input.
+    - 1 hilo de conexión creado al intentar conectar, para ejecutar `connect()` sin congelar la UI.
+    - 1 hilo receptor de mensajes del servidor (recibe los comandos del servidor y los agrega a una lista usando lock para consumirlos en otro hilo, asi permanece escuchando sin hacer tareas pesadas que puedan bloquear el hilo).
+    - 1 hilo que procesa la cola de comandos y actualiza el estado local.
 - **Colas thread-safe + locks:** cliente y servidor usan una cola protegida por `Lock` para desacoplar recepción de red y lógica del juego. En servidor, además se protege la lista de sockets/nombres conectados para evitar condiciones de carrera.
 - **Protocolo TCP simple y robusto:** cada mensaje viaja como `header(10 bytes con longitud) + payload de texto`. Esto evita lecturas parciales y facilita parseo de comandos (`\n`, `\a`, `\h`, etc.).
 - **Gestión de cupos y entradas tardías:** el máximo es 3 jugadores concurrentes. Si un cliente entra con partida llena recibe `\f`. Si entra con partida activa y hay cupo, queda sincronizado y participa plenamente desde la siguiente ronda.
-- **Orquestación de rondas:** la ronda inicia cuando todos los jugadores conectados tienen apuesta > 0; el servidor reparte, rota turnos con `\x`, y al finalizar ejecuta automáticamente el turno del crupier hasta 17–21 o puede perder.
+- **Orquestación de rondas:** la ronda inicia cuando todos los jugadores conectados el servidor resparte los turnos y los kugadores apuestan cuando todos tienen apuesta > 0; el servidor reparte las cartas y luego rota turnos con `\x`, y al finalizar ejecuta automáticamente el turno del crupier hasta 17–21 o puede perder.
 - **Consistencia de apuestas/saldo:** recarga (`\m`), apuesta (`\a`) y doblar (`\c`) se validan en servidor antes de difundir cambios, evitando desincronización entre clientes.
 - **Tolerancia a fallos y desconexiones:** ante error de socket, servidor elimina y cierra al jugador, difunde `\u` y reasigna turno si corresponde. El cliente marca error de conexión, limpia estado local y permite reintentar.
 - **Baraja y equilibrio de juego:** se usa una baraja de 4 mazos estándar (52 × 4), con reshuffle al limpiar ronda, para reducir patrones repetitivos en partidas largas.
@@ -56,11 +56,12 @@ Juego cliente-servidor en Python (pygame + sockets) para 1-3 jugadores contra el
 ### Flujo de comunicación (alto nivel)
 
 1. Conexión: cliente envía `\n`; servidor acepta o responde `\f` si lleno.
-2. Inicio de partida: cuando hay 3 jugadores, servidor emite `\y` y `\x` al primero.
+2. Inicio de partida: cuando hay 3 jugadores, servidor emite `\y` inicio departe y `\x` al primer jugador para darle turno.
 3. Apuestas: clientes envían `\a`/`\c`; el servidor valida saldo y difunde el estado.
-4. Acciones de turno: `\h` para pedir carta, `\z` para cerrar turno. El servidor rota con `\x`.
-5. Cierre de ronda: tras todos los turnos, el crupier juega (`\s`, `\v`), se envían resultados (`\w`, `\g`, `\l`) y limpieza (`\b`).
-6. Desconexiones: `\u` libera el cupo; si no hay ronda, el servidor asigna turno al siguiente disponible.
+4. Al finalizar las apuestas el crupier reparte las cartas `\s` para la carta del crupier y `\k` para las cartas de los jugadores.
+5. Acciones de turno: `\h` para pedir carta, `\c` para doblar cartas, `\z` para cerrar turno. El servidor rota con `\x`.
+6. Cierre de ronda: tras todos los turnos, el crupier juega (`\s`, `\v`), se envían resultados (`\w`, `\g`, `\l`) y limpieza (`\b`).
+7. Desconexiones: `\u` libera el cupo; si no hay ronda, el servidor asigna turno al siguiente disponible.
 
 ### Requisitos técnicos
 
